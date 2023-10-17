@@ -43,6 +43,8 @@ END_LEGAL */
     and ?????? is the disassembled instruction and its opcode.
 */
 
+// T = 1, C = 1      ,  Call = 0      ,  Ret = 0   ,  Direct = 1
+// (T-N), (Con-Uncon), (Call-NotCall), (Ret-NotRet), (Direct-NotDirect), (first_inst_count_after_offset)
 
 #include <cstdio>
 #include <cstring>
@@ -54,6 +56,8 @@ END_LEGAL */
 #include <map>
 #include "pin.H"
 #include "instlib.H"
+
+using namespace std;
 
 #define axuliryFileName "generalInfo"
 std::map<ADDRINT, std::string> disAssemblyMap;
@@ -88,7 +92,8 @@ KNOB<string> KnobHowManySet(KNOB_MODE_WRITEONCE, "pintool", "b", "1", "Specifies
 
 KNOB<string> KnobHowManyBranch(KNOB_MODE_WRITEONCE, "pintool", "m", "-1", "Specifies how many instructions should be probed. -1 for probing whole program.");
 
-KNOB<string> KnobOffset(KNOB_MODE_WRITEONCE, "pintool", "f", "1000000", "Starts saving instructions after seeing the first `f` instruction.");
+// KNOB<string> KnobOffset(KNOB_MODE_WRITEONCE, "pintool", "f", "1000000", "Starts saving instructions after seeing the first `f` instruction.");
+KNOB<string> KnobOffset(KNOB_MODE_WRITEONCE, "pintool", "f", "0", "Starts saving instructions after seeing the first `f` instruction.");
 
 VOID write_on_axu(){
     axuFile << "!!! Number of Instructions = " << (icount - offset_inst - ((fileCounter-1)*howManyBranch) + 1) << endl;
@@ -159,7 +164,11 @@ VOID docount() {
     }
 
     icount++; 
+
+    // cout << icount << "," << offset_inst << "," << fileCounter << endl;
+
     if (icount >= offset_inst && fileCounter==0){
+        // cout << "Here!" << endl;
         first_inst_count_after_offset++; //Although here is going to be incerased by one, it will be set to 1 whenever it reaches to fist branch;
         record = true;
     }else if(fileCounter>0){
@@ -439,30 +448,31 @@ static VOID ConUnDirectCall(ADDRINT ip, ADDRINT target, BOOL taken)
 static VOID Instruction(INS ins, VOID *v)
 {
     // Insert a call to docount before every instruction, no arguments are passed
+    
     INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)docount, IARG_END);
 
     if(record){
-        if (INS_IsBranchOrCall(ins)){
+        if (INS_IsValidForIpointTakenBranch(ins)){
             if(first_record){ //Detected the first branch
                 first_inst_count_after_offset = 1;
                 first_record = false;
             }
             if (INS_HasFallThrough(ins) == false){ // It is unconditional branch
                 if (INS_IsCall(ins)){ // It is call
-                    if(INS_IsDirectBranchOrCall(ins) == true){ //direct
+                    if(INS_IsDirectControlFlow(ins) == true){ //direct
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)UnconDirectCall, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     }else{
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)UnconUnDirectCall, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     }
                 }
                 else if(INS_IsRet(ins)){ // It is RET
-                    if(INS_IsDirectBranchOrCall(ins) == true){
+                    if(INS_IsDirectControlFlow(ins) == true){
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)UnconDirectRet, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     } else{
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)UnconUnDirectRet, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     }
                 }else{ // It is JMP 
-                    if(INS_IsDirectBranchOrCall(ins) == true){
+                    if(INS_IsDirectControlFlow(ins) == true){
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)UnconDirectJMP, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     } else{
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)UnconUnDirectJMP, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
@@ -470,20 +480,20 @@ static VOID Instruction(INS ins, VOID *v)
                 }
             } else {// It is conditional branch
                 if (INS_IsCall(ins)){ // It is call
-                    if(INS_IsDirectBranchOrCall(ins) == true){ //direct
+                    if(INS_IsDirectControlFlow(ins) == true){ //direct
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ConDirectCall, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     }else{
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ConUnDirectCall, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     }
                 }
                 else if(INS_IsRet(ins)){ // It is RET
-                    if(INS_IsDirectBranchOrCall(ins) == true){
+                    if(INS_IsDirectControlFlow(ins) == true){
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ConDirectRet, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     } else{
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ConUnDirectRet, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     }
                 }else{ // It is JMP 
-                    if(INS_IsDirectBranchOrCall(ins) == true){
+                    if(INS_IsDirectControlFlow(ins) == true){
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ConDirectJMP, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
                     } else{
                         INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ConUnDirectJMP, IARG_INST_PTR, IARG_BRANCH_TARGET_ADDR, IARG_BRANCH_TAKEN, IARG_END);
@@ -526,6 +536,8 @@ INT32 InitFile()
     howManyBranch = atoi(KnobHowManyBranch.Value().c_str());
     howManySet = atoi(KnobHowManySet.Value().c_str());
     offset_inst = atoi(KnobOffset.Value().c_str());
+
+    cout <<KnobHowManyBranch.Value() << endl; 
 
     /*
     cout << "---------------------" <<KnobHowManyBranch.Value() << endl;
