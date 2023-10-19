@@ -1,10 +1,8 @@
-PIN_ROOT := $(shell realpath ./pin-3.28-98749-g6643ecee5-gcc-linux)
+PIN_ROOT := $(shell pwd)/pin_tool
 
-ifneq ("$(PIN_ROOT)", "")
-    CONFIG_ROOT := $(PIN_ROOT)/source/tools/Config
-    include $(CONFIG_ROOT)/makefile.config
-    include $(TOOLS_ROOT)/Config/makefile.default.rules
-endif
+CONFIG_ROOT := $(PIN_ROOT)/source/tools/Config
+include $(CONFIG_ROOT)/makefile.config
+include $(TOOLS_ROOT)/Config/makefile.default.rules
 
 all: intel64
 

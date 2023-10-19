@@ -1,4 +1,3 @@
-![alt text](https://raw.githubusercontent.com/mbaharan/branchExtractor/master/img/TeCSARIcon-1.png)
 # Branch Extractor
 
 This software logs the trace of branche executed during a specific benchmark. This software uses Intel PIN tools for instrumenting the retired instructions.
@@ -11,36 +10,42 @@ If the compilation finished succefully, a file named `obj-intel64/branchExt.so` 
 ## How to use
 This is how the tool should be called
 ```sh
-$ ./pin-3.28-98749-g6643ecee5-gcc-linux/pin -t ./obj-intel64/branchExt.so -- <executable>
+$ ./gen_trace.sh <program> <trace_name>
 ```
-After execution, two log files named `branches_0.out`(default) and `generalInfo_0.out` will be created. The first one containing all the information about branched executed by `ls` application. Following is the sample of output:
+After execution, two log files named `<trace_name>.bz2` and `<trace_name>.txt` will be created. The first one containing all the information about branched executed by `<program>`  in a compressed version. Following is the sample of uncompressed output:
 ```
-// T = 1,              C = 1                     ,  Call = 0      ,  Ret = 0     ,  Direct = 1
-// (Taken-Not taken), (Conditional-Unconditional), (Call-Not Call), (Ret-Not Ret), (Direct-NotDirect), (first_inst_count_after_offset)
+// Branch Address, Branch Target, (Taken-Not taken), (Conditional-Unconditional), (Call-Not Call), (Ret-Not Ret), (Direct-NotDirect)
 ```
 ```
-0x7f5c1bacd128	0	1	0	0	1	23	              0x7f5c1bacd089 #BASE 0F8499000000             jz 0x7f5c1bacd128
-0x7f5c1bacd0da	1	0	0	0	1	32	              0x7f5c1bacd0be #BASE EB1A                     jmp 0x7f5c1bacd0da
-0x7f5c1bacd0c9	1	1	0	0	1	34	              0x7f5c1bacd0de #BASE 76E9                     jbe 0x7f5c1bacd0c9
-0x7f5c1bacd128	0	1	0	0	1	39	              0x7f5c1bacd0d8 #BASE 744E                     jz 0x7f5c1bacd128
-0x7f5c1bacd0c9	1	1	0	0	1	41	              0x7f5c1bacd0de #BASE 76E9                     jbe 0x7f5c1bacd0c9
-0x7f5c1bacd128	0	1	0	0	1	46	              0x7f5c1bacd0d8 #BASE 744E                     jz 0x7f5c1bacd128
-0x7f5c1bacd0c9	0	1	0	0	1	48	              0x7f5c1bacd0de #BASE 76E9                     jbe 0x7f5c1bacd0c9
-0x7f5c1bacd0c0	0	1	0	0	1	52	              0x7f5c1bacd0ea #BASE 76D4                     jbe 0x7f5c1bacd0c0
-0x7f5c1bacd108	1	1	0	0	1	57	              0x7f5c1bacd0f8 #BASE 760E                     jbe 0x7f5c1bacd108
+0x24763089	0x24763128	0	1	0	0	1
+0x247630be	0x247630da	1	0	0	0	1
+0x247630de	0x247630c9	1	1	0	0	1
+0x247630d8	0x24763128	0	1	0	0	1
+0x247630de	0x247630c9	1	1	0	0	1
+0x247630d8	0x24763128	0	1	0	0	1
+0x247630de	0x247630c9	0	1	0	0	1
+0x247630ea	0x247630c0	0	1	0	0	1
+0x247630f8	0x24763108	1	1	0	0	1
+0x24763112	0x247635d0	1	1	0	0	1
+0x247635da	0x247630cd	0	1	0	0	1
+0x247635e9	0x247630c9	1	0	0	0	1
+0x247630d8	0x24763128	0	1	0	0	1
+0x247630de	0x247630c9	1	1	0	0	1
+0x247630d8	0x24763128	0	1	0	0	1
+0x247630de	0x247630c9	1	1	0	0	1
 ```
 
 while the latter one contains static information about the executed branches:
 ```
-!!! Number of Instructions = 569883
-!!! Number of Unconditional branches = 23315
-!!! Number of Conditional branches = 91351
-!!! Number of Call branches = 6811
-!!! Number of Ret branches = 6807
+!!! Number of Instructions = 20573395
+!!! Number of Unconditional branches = 23622
+!!! Number of Conditional branches = 91429
+!!! Number of Call branches = 6902
+!!! Number of Ret branches = 6898
 ------------------------------------
 ```
 
-About `branches_0.out`, the first column is the branch target IP, the second column is `1` if it is taken, the third one is `1` if the branch is conditional, the fourth one is `1` if it is a call instruction, the fifth one is `1` if it is a RET instruction, the sixth one is `1` if it is direct branch, and the seventh one is the total number of instructions seen until the current branch after the defined offset, the eighth on is the address of PC, and after the `#` sign is instruction opcode and disassembled version.
+About `<trace_name>`, the first column is the Branch Address, the second column is the Branch Address, the third column is `1` if it is taken, the fourth one is `1` if the branch is conditional, the fifth one is `1` if it is a call instruction, the sixth one is `1` if it is a RET instruction, the seventh one is `1` if it is direct branch
 
 Please have look at following lines in branchExt.cpp to understand the tools options:
 
