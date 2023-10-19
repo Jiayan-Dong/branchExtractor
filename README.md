@@ -1,5 +1,7 @@
 # Branch Extractor
 
+This software is modified from https://github.com/mbaharan/branchExtractor
+
 This software logs the trace of branche executed during a specific benchmark. This software uses Intel PIN tools for instrumenting the retired instructions.
 
 ## Installation
