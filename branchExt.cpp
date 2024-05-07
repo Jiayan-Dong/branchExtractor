@@ -81,11 +81,11 @@ static UINT64 howManySet = 0;
 static UINT64 fileCounter = 0;
 static UINT64 offset_inst = 0;
 static UINT64 first_inst_count_after_offset = 0;
-static bool first_record = true;
+// static bool first_record = true;
 static bool record = false;
 static ostringstream filePrefix;
 
-static UINT64 CBCOUNT_LIMIT = 3000000;
+static UINT64 CBCOUNT_LIMIT = 10000000;
 static UINT64 prev_cbcount = -1;
 
 KNOB<string> KnobOutputFile(KNOB_MODE_WRITEONCE, "pintool", "o", "branches", "specifies the output file name prefix.");
@@ -94,7 +94,7 @@ KNOB<string> KnobHowManySet(KNOB_MODE_WRITEONCE, "pintool", "b", "1", "Specifies
 
 KNOB<string> KnobHowManyBranch(KNOB_MODE_WRITEONCE, "pintool", "m", "-1", "Specifies how many instructions should be probed. -1 for probing whole program.");
 
-KNOB<string> KnobOffset(KNOB_MODE_WRITEONCE, "pintool", "f", "20000000", "Starts saving instructions after seeing the first `f` instruction.");
+KNOB<string> KnobOffset(KNOB_MODE_WRITEONCE, "pintool", "f", "0", "Starts saving instructions after seeing the first `f` instruction.");
 // KNOB<string> KnobOffset(KNOB_MODE_WRITEONCE, "pintool", "f", "0", "Starts saving instructions after seeing the first `f` instruction.");
 
 VOID write_on_axu()
@@ -223,12 +223,48 @@ VOID ImageLoad(IMG img, VOID *v)
     }
 }
 
+static VOID ICache_Access(ADDRINT ip)
+{
+
+    OutFile << std::hex
+            << (ip & 0xffffffff)                // PC
+            << "\t" << (ip & 0xffffffff)        // Access Loc
+            << "\t" << "I"                      // Type
+            << "\t" << "R"                      // Type
+            << "\n"
+            << flush;
+}
+
+static VOID DCache_Read(ADDRINT ip, ADDRINT target)
+{
+
+    OutFile << std::hex
+            << (ip & 0xffffffff)                // PC
+            << "\t" << (target & 0xffffffff)    // Access Loc
+            << "\t" << "D"                      // Type
+            << "\t" << "R"                      // Type
+            << "\n"
+            << flush;
+}
+
+static VOID DCache_Write(ADDRINT ip, ADDRINT target)
+{
+
+    OutFile << std::hex
+            << (ip & 0xffffffff)                // PC
+            << "\t" << (target & 0xffffffff)    // Access Loc
+            << "\t" << "D"                      // Type
+            << "\t" << "W"                      // Type
+            << "\n"
+            << flush;
+}
+
 /************
  *
  * JMP segment
  *
  */
-
+/*
 static VOID UnconDirectJMP(ADDRINT ip, ADDRINT target, BOOL taken)
 {
 
@@ -288,6 +324,7 @@ static VOID ConUnDirectJMP(ADDRINT ip, ADDRINT target, BOOL taken)
             << flush;
     cbcount++;
 }
+*/
 //****************************************************************
 
 /************
@@ -295,7 +332,7 @@ static VOID ConUnDirectJMP(ADDRINT ip, ADDRINT target, BOOL taken)
  * Ret segment
  *
  */
-
+/*
 static VOID UnconDirectRet(ADDRINT ip, ADDRINT target, BOOL taken)
 {
     OutFile << std::hex
@@ -358,6 +395,7 @@ static VOID ConUnDirectRet(ADDRINT ip, ADDRINT target, BOOL taken)
     cbcount++;
     retcount++;
 }
+*/
 //****************************************************************
 
 /************
@@ -365,6 +403,7 @@ static VOID ConUnDirectRet(ADDRINT ip, ADDRINT target, BOOL taken)
  * Call segment
  *
  */
+/*
 static VOID UnconDirectCall(ADDRINT ip, ADDRINT target, BOOL taken)
 {
     OutFile << std::hex
@@ -425,6 +464,7 @@ static VOID ConUnDirectCall(ADDRINT ip, ADDRINT target, BOOL taken)
     cbcount++;
     callcount++;
 }
+*/
 //****************************************************************
 
 static VOID Instruction(INS ins, VOID *v)
@@ -435,6 +475,7 @@ static VOID Instruction(INS ins, VOID *v)
 
     if (record)
     {
+        /*
         if (INS_IsValidForIpointTakenBranch(ins))
         {
             if (first_record)
@@ -515,6 +556,16 @@ static VOID Instruction(INS ins, VOID *v)
                 }
             }
         }
+        */
+       INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)ICache_Access, IARG_INST_PTR, IARG_END);
+       if (LEVEL_CORE::INS_IsMemoryRead(ins))
+       {
+        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)DCache_Read, IARG_INST_PTR, IARG_MEMORYREAD_EA, IARG_END);
+       }
+       if (LEVEL_CORE::INS_IsMemoryWrite(ins))
+       {
+        INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)DCache_Write, IARG_INST_PTR, IARG_MEMORYWRITE_EA, IARG_END);
+       }
     }
     // We do not care about instrunctions that are not branches.
     // else
